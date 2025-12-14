@@ -1,7 +1,10 @@
 numpydoc
-recommonmark
+myst-parser
 sphinx
-numba>=0.49.1
 numpy
 scipy
+jax>=0.4.28
+jaxlib>=0.4.28
+optimistix>=0.0.6
+equinox>=0.11.0
 tqdm
