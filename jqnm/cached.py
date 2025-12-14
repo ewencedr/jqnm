@@ -1,14 +1,16 @@
 """Caching interface to Kerr QNMs
 
 This is a high-level interface to the package.
-The global cache :obj:`qnm.modes_cache` (an instance of
+The global cache :obj:`jqnm.modes_cache` (an instance of
 :class:`KerrSeqCache`) will return instances of
-:class:`qnm.spinsequence.KerrSpinSeq` from memory or disk. If a spin
+:class:`jqnm.spinsequence.KerrSpinSeq` from memory or disk. If a spin
 sequence is neither in memory nor on disk then it will be computed and
 returned.
 
 Use :meth:`download_data` to fetch a collection of precomputed spin
 sequences from the web.
+
+This module uses JAX for GPU acceleration and automatic differentiation.
 """
 
 from __future__ import division, print_function, absolute_import
@@ -17,17 +19,17 @@ import logging
 import pickle
 import os
 import sys
+
 try:
-    from pathlib import Path # py 3
+    from pathlib import Path  # py 3
 except ImportError:
-    from pathlib2 import Path # py 2
+    from pathlib2 import Path  # py 2
 try:
-    from urllib.request import urlretrieve # py 3
+    from urllib.request import urlretrieve  # py 3
 except ImportError:
-    from urllib import  urlretrieve # py 2
+    from urllib import urlretrieve  # py 2
 from tqdm import tqdm
 import tarfile
-import glob
 
 import numpy as np
 
@@ -37,6 +39,7 @@ from .schwarzschild.tabulated import QNMDict
 
 # TODO should all the functions be static member functions? No, I don't
 # think so
+
 
 # Taken from matplotlib
 def get_home():
@@ -48,6 +51,7 @@ def get_home():
         return str(Path.home())
     except Exception:
         return None
+
 
 def get_cachedir():
     """
@@ -67,15 +71,14 @@ def get_cachedir():
     -------
     pathlib.Path object or None
     """
-    xdg_cache_dir = (os.environ.get('XDG_CACHE_HOME')
-                     or (str(Path(get_home(), ".cache"))
-                         if get_home()
-                         else None))
+    xdg_cache_dir = os.environ.get("XDG_CACHE_HOME") or (
+        str(Path(get_home(), ".cache")) if get_home() else None
+    )
 
-    cachedir = os.environ.get('QNMCACHEDIR')
+    cachedir = os.environ.get("QNMCACHEDIR")
     if cachedir:
         cachedir = Path(cachedir).resolve()
-    elif sys.platform.startswith(('linux', 'freebsd')) and xdg_cache_dir:
+    elif sys.platform.startswith(("linux", "freebsd")) and xdg_cache_dir:
         cachedir = Path(xdg_cache_dir, "qnm")
     elif get_home():
         cachedir = Path(get_home(), ".qnm")
@@ -93,6 +96,7 @@ def get_cachedir():
 
     # If all else fails...
     return None
+
 
 def mode_pickle_path(s, l, m, n):
     """Construct the path to a pickle file for the mode (s, l, m, n)
@@ -116,26 +120,25 @@ def mode_pickle_path(s, l, m, n):
     pathlib.Path object or None
       `<cachedir>/data/s<s>_l<l>_m<m>_n<n>.pickle`
 
-     """
+    """
 
     if not (l >= l_min(s, m)):
-        raise ValueError("l={} must be >= l_min={}"
-                         .format(l, l_min(s, m)))
+        raise ValueError("l={} must be >= l_min={}".format(l, l_min(s, m)))
 
+    s_sign = "-" if (s < 0) else ""
+    m_sign = "-" if (m < 0) else ""
 
-    s_sign = '-' if (s<0) else ''
-    m_sign = '-' if (m<0) else ''
-
-    filename = 's{}{}_l{}_m{}{}_n{}.pickle'.format(
-        s_sign, np.abs(s), l,
-        m_sign, np.abs(m), n)
+    filename = "s{}{}_l{}_m{}{}_n{}.pickle".format(
+        s_sign, np.abs(s), l, m_sign, np.abs(m), n
+    )
 
     cache_dir = get_cachedir()
     if cache_dir is not None:
-        pickle_path = get_cachedir() / 'data' / filename
+        pickle_path = get_cachedir() / "data" / filename
         return pickle_path
     else:
         return None
+
 
 def write_mode(spin_seq, pickle_path=None):
     """Write an instance of KerrSpinSeq to disk.
@@ -155,11 +158,10 @@ def write_mode(spin_seq, pickle_path=None):
 
     """
 
-    if (pickle_path is None):
-        pickle_path = mode_pickle_path(spin_seq.s, spin_seq.l,
-                                       spin_seq.m, spin_seq.n)
+    if pickle_path is None:
+        pickle_path = mode_pickle_path(spin_seq.s, spin_seq.l, spin_seq.m, spin_seq.n)
         if pickle_path is None:
-            logging.error('No cache dir found, not writing anything.')
+            logging.error("No cache dir found, not writing anything.")
             return
 
     # Convert pickle_path to Path if it's a string
@@ -169,16 +171,21 @@ def write_mode(spin_seq, pickle_path=None):
         try:
             the_dir.mkdir(parents=True, exist_ok=True)
         except:
-            logging.error("Could not create dir {} to store Kerr QNM sequence".format(the_dir))
+            logging.error(
+                "Could not create dir {} to store Kerr QNM sequence".format(the_dir)
+            )
 
     try:
-        with pickle_path.open('wb') as handle:
+        with pickle_path.open("wb") as handle:
             logging.info("Writing Kerr QNM sequence to file {}".format(pickle_path))
             pickle.dump(spin_seq, handle, protocol=pickle.HIGHEST_PROTOCOL)
     except:
-        logging.error("Could not write Kerr QNM sequence to file {}".format(pickle_path))
+        logging.error(
+            "Could not write Kerr QNM sequence to file {}".format(pickle_path)
+        )
 
     return
+
 
 def load_cached_mode(s, l, m, n):
     """Read a KerrSpinSeq from disk.
@@ -214,22 +221,26 @@ def load_cached_mode(s, l, m, n):
         return None
 
     try:
-        with pickle_path.open('rb') as handle:
+        with pickle_path.open("rb") as handle:
             logging.info("Loading Kerr QNM sequence from file {}".format(pickle_path))
             spin_seq = pickle.load(handle)
     except UnicodeDecodeError as e:
-        with pickle_path.open('rb') as handle:
+        with pickle_path.open("rb") as handle:
             logging.info("Loading Kerr QNM sequence from file {}".format(pickle_path))
-            spin_seq = pickle.load(handle, encoding='latin1')
+            spin_seq = pickle.load(handle, encoding="latin1")
     except:
-        logging.warn("Could not load Kerr QNM sequence from file {}.".format(pickle_path))
+        logging.warn(
+            "Could not load Kerr QNM sequence from file {}.".format(pickle_path)
+        )
         if not hasattr(load_cached_mode, "have_warned"):
             logging.warn("Do you need to run qnm.download_data()?")
             load_cached_mode.have_warned = True
 
     return spin_seq
 
+
 ############################################################
+
 
 class KerrSeqCache(object):
     """High-level caching interface for getting precomputed spin sequences.
@@ -274,8 +285,7 @@ class KerrSeqCache(object):
     # Borg pattern, the QNM dict will be shared among all instances
     _shared_state = {}
 
-    def __init__(self, init_schw=False, compute_if_not_found=True,
-                 compute_pars=None):
+    def __init__(self, init_schw=False, compute_if_not_found=True, compute_pars=None):
 
         self.__dict__ = self._shared_state
 
@@ -285,7 +295,7 @@ class KerrSeqCache(object):
         self.compute_pars = dict(compute_pars) if compute_pars is not None else {}
 
         # Don't reset this one
-        if (not hasattr(self, 'schw_dict')):
+        if not hasattr(self, "schw_dict"):
             # First!
             # The only reason for keeping this around is to know
             # whether or not QNMDict has been initialized
@@ -293,14 +303,11 @@ class KerrSeqCache(object):
             self.schw_dict = QNMDict(init=init_schw)
 
         # Definitely don't reset this one
-        if (not hasattr(self, 'seq_dict')):
+        if not hasattr(self, "seq_dict"):
             # First!
             self.seq_dict = {}
 
-
-    def __call__(self, s, l, m, n,
-                 compute_if_not_found=None,
-                 compute_pars=None):
+    def __call__(self, s, l, m, n, compute_if_not_found=None, compute_pars=None):
         """Load a :class:`qnm.spinsequence.KerrSpinSeq` from the cache
         or from disk if available.
 
@@ -339,8 +346,7 @@ class KerrSeqCache(object):
         """
 
         if not (l >= l_min(s, m)):
-            raise ValueError("l={} must be >= l_min={}"
-                             .format(l, l_min(s, m)))
+            raise ValueError("l={} must be >= l_min={}".format(l, l_min(s, m)))
 
         if not (n >= 0):
             raise ValueError("n={} must be non-negative".format(n))
@@ -351,22 +357,23 @@ class KerrSeqCache(object):
         if compute_pars is None:
             compute_pars = self.compute_pars
 
-        key = (s,l,m,n)
-        if (key in self.seq_dict.keys()):
+        key = (s, l, m, n)
+        if key in self.seq_dict.keys():
             return self.seq_dict[key]
 
-        loaded_mode = load_cached_mode(s,l,m,n)
+        loaded_mode = load_cached_mode(s, l, m, n)
 
-        if (loaded_mode is not None):
+        if loaded_mode is not None:
             self.seq_dict[key] = loaded_mode
             return loaded_mode
 
-        if (compute_if_not_found):
-            logging.info("Mode not in cache, or on disk, trying to "
-                         "compute s={}, l={}, m={}, n={}"
-                         .format(s, l, m, n))
-            the_pars = dict(compute_pars) # Make a copy
-            the_pars.update({ 's': s, 'l': l, 'm': m, 'n': n })
+        if compute_if_not_found:
+            logging.info(
+                "Mode not in cache, or on disk, trying to "
+                "compute s={}, l={}, m={}, n={}".format(s, l, m, n)
+            )
+            the_pars = dict(compute_pars)  # Make a copy
+            the_pars.update({"s": s, "l": l, "m": m, "n": n})
             computed = KerrSpinSeq(**the_pars)
             computed.do_find_sequence()
             self.seq_dict[key] = computed
@@ -383,6 +390,7 @@ class KerrSeqCache(object):
 
         for _, seq in self.seq_dict.items():
             write_mode(seq)
+
 
 ############################################################
 def build_package_default_cache(ksc):
@@ -406,54 +414,75 @@ def build_package_default_cache(ksc):
 
     QNMDict(init=True)
 
-    a_max   = .9995
-    tol     = 1e-10
-    cf_tol  = np.sqrt(np.finfo(float).eps)
+    a_max = 0.9995
+    tol = 1e-10
+    cf_tol = np.sqrt(np.finfo(float).eps)
     delta_a = 2.5e-3
-    Nr_max  = 6000
+    Nr_max = 6000
 
-    ksc.compute_pars.update({'a_max': a_max, 'tol': tol, 'cf_tol': cf_tol,
-                             'delta_a': delta_a, 'Nr_max': Nr_max})
+    ksc.compute_pars.update(
+        {
+            "a_max": a_max,
+            "tol": tol,
+            "cf_tol": cf_tol,
+            "delta_a": delta_a,
+            "Nr_max": Nr_max,
+        }
+    )
 
     # Known modes that become algebraically special
     modes_to_avoid = [(-1, 1, 0, 6)]
 
     reruns = []
 
-    ns=np.arange(0,7)
+    ns = np.arange(0, 7)
     ss = [-2, -1]
     for s in ss:
-        ls=np.arange(np.abs(s),8)
+        ls = np.arange(np.abs(s), 8)
         for l in ls:
-            ms=np.arange(-l,l+1)
+            ms = np.arange(-l, l + 1)
             for m in ms:
                 for n in ns:
-                    if ((s, l, m, n) in modes_to_avoid):
+                    if (s, l, m, n) in modes_to_avoid:
                         print("Skipping known mode {}".format((s, l, m, n)))
                         continue
                     try:
                         ksc(s, l, m, n)
                     except:
-                        reruns.append((s,l,m,n))
+                        reruns.append((s, l, m, n))
 
-    print('{} modes in cache, going to rerun {} modes'.format(len(ksc.seq_dict),
-                                                              len(reruns)))
+    print(
+        "{} modes in cache, going to rerun {} modes".format(
+            len(ksc.seq_dict), len(reruns)
+        )
+    )
 
     # Tweak the params a little bit for the reruns
     re2runs = []
-    ksc.compute_pars.update({'delta_a': 1.9e-3, 'cf_tol': cf_tol * 0.25, 'tol': tol * 3.})
+    ksc.compute_pars.update(
+        {"delta_a": 1.9e-3, "cf_tol": cf_tol * 0.25, "tol": tol * 3.0}
+    )
     for s, l, m, n in reruns:
         try:
             ksc(s, l, m, n)
         except:
             re2runs.append((s, l, m, n))
 
-    print('{} modes in cache, going to rerun {} modes'.format(len(ksc.seq_dict),
-                                                              len(re2runs)))
+    print(
+        "{} modes in cache, going to rerun {} modes".format(
+            len(ksc.seq_dict), len(re2runs)
+        )
+    )
 
-    ksc.compute_pars.update({'a_max': .9992, 'delta_a': 1.7e-3,
-                             'cf_tol': cf_tol * 0.05, 'tol': tol * 10.,
-                             'Nr_max': Nr_max * 2})
+    ksc.compute_pars.update(
+        {
+            "a_max": 0.9992,
+            "delta_a": 1.7e-3,
+            "cf_tol": cf_tol * 0.05,
+            "tol": tol * 10.0,
+            "Nr_max": Nr_max * 2,
+        }
+    )
 
     re3runs = []
     for s, l, m, n in re2runs:
@@ -462,12 +491,21 @@ def build_package_default_cache(ksc):
         except:
             re3runs.append((s, l, m, n))
 
-    print('{} modes in cache, going to rerun {} modes'.format(len(ksc.seq_dict),
-                                                              len(re3runs)))
+    print(
+        "{} modes in cache, going to rerun {} modes".format(
+            len(ksc.seq_dict), len(re3runs)
+        )
+    )
 
-    ksc.compute_pars.update({'a_max': .9993, 'delta_a': 0.24e-3,
-                             'cf_tol': cf_tol * 0.01, 'tol': tol * 70.,
-                             'Nr_max': Nr_max * 3})
+    ksc.compute_pars.update(
+        {
+            "a_max": 0.9993,
+            "delta_a": 0.24e-3,
+            "cf_tol": cf_tol * 0.01,
+            "tol": tol * 70.0,
+            "Nr_max": Nr_max * 3,
+        }
+    )
 
     # This is the last round of reruns we need to do
     for s, l, m, n in re3runs:
@@ -475,12 +513,15 @@ def build_package_default_cache(ksc):
 
     return ksc
 
+
 ############################################################
 # This is taken verbatim from the tqdm examples, see
 # https://pypi.org/project/tqdm/#hooks-and-callbacks
 
+
 class _TqdmUpTo(tqdm):
     """Provides `update_to(n)` which uses `tqdm.update(delta_n)`."""
+
     def update_to(self, b=1, bsize=1, tsize=None):
         """
         b  : int, optional
@@ -499,7 +540,8 @@ class _TqdmUpTo(tqdm):
 
 # NOTE This URL is hardcoded. The data version to use may need to
 # be updated if fields inside classes change.
-_data_url = 'https://duetosymmetry.com/files/qnm/data-0.4.0.tar.bz2'
+_data_url = "https://duetosymmetry.com/files/qnm/data-0.4.0.tar.bz2"
+
 
 def download_data(overwrite=False):
     """Fetch and decompress tarball of precomputed spin sequences from
@@ -513,25 +555,27 @@ def download_data(overwrite=False):
 
     """
 
-    filename = _data_url.split('/')[-1]
+    filename = _data_url.split("/")[-1]
     base_dir = get_cachedir()
     if base_dir is not None:
-        dest     = base_dir / filename
+        dest = base_dir / filename
     else:
-        print('No cache dir found, not downloading anything.')
+        print("No cache dir found, not downloading anything.")
         return
 
-    if (dest.exists() and (overwrite is False)):
-        print("Destination path {} already exists, use overwrite=True "
-              "to force an overwrite.".format(dest))
+    if dest.exists() and (overwrite is False):
+        print(
+            "Destination path {} already exists, use overwrite=True "
+            "to force an overwrite.".format(dest)
+        )
         return
 
     print("Trying to fetch {}".format(_data_url))
-    with _TqdmUpTo(unit='B', unit_scale=True, miniters=1,
-                   desc=filename) as t:
+    with _TqdmUpTo(unit="B", unit_scale=True, miniters=1, desc=filename) as t:
         urlretrieve(_data_url, filename=str(dest), reporthook=t.update_to)
 
     _decompress_data()
+
 
 ############################################################
 def _decompress_data():
@@ -539,20 +583,24 @@ def _decompress_data():
 
     dest_dir = get_cachedir()
     if dest_dir is None:
-        print('No cache dir found, not decompressing anything.')
+        print("No cache dir found, not decompressing anything.")
         return
 
-    filename = _data_url.split('/')[-1]
+    filename = _data_url.split("/")[-1]
     tarball = dest_dir / filename
 
     print("Trying to decompress file {}".format(tarball))
     with tarfile.open(str(tarball), "r:bz2") as tar:
         tar.extractall(str(dest_dir))
 
-    data_dir = dest_dir / 'data'
-    pickle_files = data_dir.glob('*.pickle')
-    print("Data directory {} contains {} pickle files"
-          .format(data_dir, len(list(pickle_files))))
+    data_dir = dest_dir / "data"
+    pickle_files = data_dir.glob("*.pickle")
+    print(
+        "Data directory {} contains {} pickle files".format(
+            data_dir, len(list(pickle_files))
+        )
+    )
+
 
 ############################################################
 def _clear_disk_cache(delete_tarball=False):
@@ -561,11 +609,11 @@ def _clear_disk_cache(delete_tarball=False):
     base_dir = get_cachedir()
 
     if base_dir is None:
-        print('No cache dir found, not deleting anything.')
+        print("No cache dir found, not deleting anything.")
         return
 
-    data_dir = base_dir / 'data'
-    pickle_files = data_dir.glob('*.pickle')
+    data_dir = base_dir / "data"
+    pickle_files = data_dir.glob("*.pickle")
 
     for pickle_file in pickle_files:
         try:
@@ -574,7 +622,7 @@ def _clear_disk_cache(delete_tarball=False):
             print('Could not remove file "{}"'.format(pickle_file))
 
     if delete_tarball:
-        tarball_path = base_dir / 'data.tar.bz2'
+        tarball_path = base_dir / "data.tar.bz2"
         try:
             tarball_path.unlink()
         except:

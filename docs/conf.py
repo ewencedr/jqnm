@@ -17,21 +17,19 @@ import sys
 
 import sphinx
 
-from recommonmark.parser import CommonMarkParser
-
 sys.path.insert(0, os.path.abspath('..'))
-sys.path.insert(0, os.path.abspath('../qnm'))
+sys.path.insert(0, os.path.abspath('../jqnm'))
 
 # -- Project information -----------------------------------------------------
 
-import _version as qnm_version
+import _version as jqnm_version
 
-project = 'qnm'
-copyright = '2019, Leo C. Stein'
-author = 'Leo C. Stein'
+project = 'jqnm'
+copyright = '2024, Cedric Ewen'
+author = 'Cedric Ewen'
 
 # The short X.Y version
-version = qnm_version.__version__
+version = jqnm_version.__version__
 # The full version, including alpha/beta/rc tags
 release = version
 
@@ -55,40 +53,15 @@ extensions = [
     'sphinx.ext.mathjax',
     'sphinx.ext.viewcode',
     'sphinx.ext.githubpages',
-    'recommonmark',
+    'myst_parser',
 ]
 
 autosummary_generate = True
 
 autodoc_docstring_signature = True
-if sphinx.version_info < (1, 8):
-    autodoc_default_flags = ['members', 'undoc-members']
-else:
-    autodoc_default_options = {'members': None,
-                               'undoc-members': None,
-                               'special-members': '__call__'}
-
-# -- Try to auto-generate numba-decorated signatures -----------------
-
-import numba
-import inspect
-
-def process_numba_docstring(app, what, name, obj, options, signature, return_annotation):
-    if type(obj) is not numba.core.registry.CPUDispatcher:
-        return (signature, return_annotation)
-    else:
-        original = obj.py_func
-        orig_sig = inspect.signature(original)
-
-        if (orig_sig.return_annotation) is inspect._empty:
-            ret_ann = None
-        else:
-            ret_ann = orig_sig.return_annotation.__name__
-
-        return (str(orig_sig), ret_ann)
-
-def setup(app):
-    app.connect('autodoc-process-signature', process_numba_docstring)
+autodoc_default_options = {'members': None,
+                           'undoc-members': None,
+                           'special-members': '__call__'}
 
 # --------------------------------------------------------------------
 
@@ -96,19 +69,11 @@ def setup(app):
 templates_path = ['_templates']
 
 # The suffix(es) of source filenames.
-# You can specify multiple suffix as a list of string:
-#
-if sphinx.version_info < (1, 8):
-    source_parsers = {
-        '.md': CommonMarkParser,
-    }
-    source_suffix = ['.rst', '.md']
-else:
-    source_suffix = {
-        '.rst': 'restructuredtext',
-        '.txt': 'markdown',
-        '.md': 'markdown',
-    }
+source_suffix = {
+    '.rst': 'restructuredtext',
+    '.txt': 'markdown',
+    '.md': 'markdown',
+}
 
 # The master toctree document.
 master_doc = 'index'
@@ -118,7 +83,7 @@ master_doc = 'index'
 #
 # This is also used if you do content translation via gettext catalogs.
 # Usually you set "language" from the command line for these cases.
-language = None
+language = 'en'
 
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
@@ -164,7 +129,7 @@ html_static_path = ['_static']
 # -- Options for HTMLHelp output ---------------------------------------------
 
 # Output file base name for HTML help builder.
-htmlhelp_basename = 'qnmdoc'
+htmlhelp_basename = 'jqnmdoc'
 
 
 # -- Options for LaTeX output ------------------------------------------------
@@ -191,8 +156,8 @@ latex_elements = {
 # (source start file, target name, title,
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
-    (master_doc, 'qnm.tex', 'qnm Documentation',
-     'Leo C. Stein', 'manual'),
+    (master_doc, 'jqnm.tex', 'jqnm Documentation',
+     'Cedric Ewen', 'manual'),
 ]
 
 
@@ -201,7 +166,7 @@ latex_documents = [
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
 man_pages = [
-    (master_doc, 'qnm', 'qnm Documentation',
+    (master_doc, 'jqnm', 'jqnm Documentation',
      [author], 1)
 ]
 
@@ -212,8 +177,8 @@ man_pages = [
 # (source start file, target name, title, author,
 #  dir menu entry, description, category)
 texinfo_documents = [
-    (master_doc, 'qnm', 'qnm Documentation',
-     author, 'qnm', 'One line description of project.',
+    (master_doc, 'jqnm', 'jqnm Documentation',
+     author, 'jqnm', 'JAX-accelerated Kerr quasinormal modes calculator.',
      'Miscellaneous'),
 ]
 

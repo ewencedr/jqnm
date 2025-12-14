@@ -1,8 +1,10 @@
-""" Follow a Schwarzschild QNM sequence (s,l) from n=0 upwards.
+"""Follow a Schwarzschild QNM sequence (s,l) from n=0 upwards.
 
 The class :class:`SchwOvertoneSeq` makes it possible to find
 successive overtones (n's) of a QNM labeled by (s,l), in Schwarzschild
 (a=0). See its documentation for more details.
+
+This module uses JAX for GPU acceleration and automatic differentiation.
 """
 
 from __future__ import division, print_function, absolute_import
@@ -10,7 +12,8 @@ from __future__ import division, print_function, absolute_import
 import logging
 
 import numpy as np
-from scipy import optimize, interpolate
+from scipy import optimize
+
 try:
     NoConvergence = optimize.NoConvergence
 except AttributeError:  # scipy < 1.13.0
@@ -21,6 +24,7 @@ from ..nearby import NearbyRootFinder
 from .approx import dolan_ottewill_expansion
 
 # TODO some documentation here, better documentation throughout
+
 
 class SchwOvertoneSeq(object):
     """Object to follow a sequence of Schwarzschild overtones,
@@ -100,46 +104,51 @@ class SchwOvertoneSeq(object):
     def __init__(self, *args, **kwargs):
 
         # Read args
-        self.n_max       = kwargs.get('n_max',       12)
-        self.s           = kwargs.get('s',           -2)
-        self.l           = kwargs.get('l',           2)
-        self.tol         = kwargs.get('tol',         1e-10)
-        self.Nr          = kwargs.get('Nr',          300)
-        self.Nr_min      = self.Nr
-        self.Nr_max      = kwargs.get('Nr_max',      6000)
-        self.r_N         = kwargs.get('r_N',         0.j)
+        self.n_max = kwargs.get("n_max", 12)
+        self.s = kwargs.get("s", -2)
+        self.l = kwargs.get("l", 2)
+        self.tol = kwargs.get("tol", 1e-10)
+        self.Nr = kwargs.get("Nr", 300)
+        self.Nr_min = self.Nr
+        self.Nr_max = kwargs.get("Nr_max", 6000)
+        self.r_N = kwargs.get("r_N", 0.0j)
 
         # TODO check that values make sense!!!
         if not (self.l >= l_min(self.s, 0)):
-            raise ValueError("l={} must be >= l_min={}"
-                             .format(self.l, l_min(self.s, 0)))
+            raise ValueError(
+                "l={} must be >= l_min={}".format(self.l, l_min(self.s, 0))
+            )
 
         # We know the Schwarzschild separation constant analytically
         self.A = swsphericalh_A(self.s, self.l, 0)
 
         # Create array of n's and omega's
-        self.n      = []
-        self.omega  = np.array([], dtype=complex)
+        self.n = []
+        self.omega = np.array([], dtype=complex)
         self.cf_err = np.array([])
-        self.n_frac  = np.array([])
+        self.n_frac = np.array([])
 
         # We need and instance of root finder
-        self.solver = NearbyRootFinder(s=self.s, m=0,
-                                       l_max=self.l + 1,
-                                       a=0.,
-                                       A_closest_to=self.A,
-                                       tol=self.tol,
-                                       n_inv=0, Nr=self.Nr,
-                                       Nr_max=self.Nr_max,
-                                       r_N=self.r_N)
+        self.solver = NearbyRootFinder(
+            s=self.s,
+            m=0,
+            l_max=self.l + 1,
+            a=0.0,
+            A_closest_to=self.A,
+            tol=self.tol,
+            n_inv=0,
+            Nr=self.Nr,
+            Nr_max=self.Nr_max,
+            r_N=self.r_N,
+        )
 
     def find_sequence(self):
-        """ Alias for :meth:`extend()` """
+        """Alias for :meth:`extend()`"""
 
         self.extend()
 
     def extend(self, n_max=None):
-        """ Extend the current overtone sequence to a greater n_max.
+        """Extend the current overtone sequence to a greater n_max.
 
         Parameters
         ----------
@@ -155,17 +164,17 @@ class SchwOvertoneSeq(object):
 
         """
 
-        if (n_max is not None):
+        if n_max is not None:
             self.n_max = n_max
 
-        while (len(self.omega) <= self.n_max):
+        while len(self.omega) <= self.n_max:
 
             n = len(self.omega)
 
             self.solver.clear_results()
             self.solver.set_params(n_inv=n)
 
-            if (n < 2):
+            if n < 2:
                 omega_guess = dolan_ottewill_expansion(self.s, self.l, n)
             else:
                 # Linearly extrapolate from the last two
@@ -177,18 +186,20 @@ class SchwOvertoneSeq(object):
                 # Linearly interpolate
                 omega_guess = om_m_1 + om_diff
 
-                if (n > 5):
+                if n > 5:
                     # Check if this difference is greater than the typical spacing
                     # of the last few points
                     typ_sp = np.mean(np.abs(np.diff(self.omega[-6:-1])))
 
-                    if (np.abs(om_diff) > 2. * typ_sp):
+                    if np.abs(om_diff) > 2.0 * typ_sp:
                         # It's likely we skipped an overtone.
                         # Average and go back one
-                        omega_guess = (om_m_1 + om_m_2)/2.
-                        self.solver.set_params(n_inv=n-1)
-                        logging.info("Potentially skipped an overtone "
-                                     "in the series, trying to go back")
+                        omega_guess = (om_m_1 + om_m_2) / 2.0
+                        self.solver.set_params(n_inv=n - 1)
+                        logging.info(
+                            "Potentially skipped an overtone "
+                            "in the series, trying to go back"
+                        )
 
             self.solver.set_params(omega_guess=omega_guess)
             # Try to reject previously-found poles
@@ -201,16 +212,16 @@ class SchwOvertoneSeq(object):
 
                 result = self.solver.do_solve()
 
-                if (result is None):
+                if result is None:
                     # Potentially try the next inversion number
                     cur_inv_n = self.solver.n_inv
                     cur_inv_n = cur_inv_n + 1
                     self.solver.set_params(n_inv=cur_inv_n)
 
-                    if (np.abs(cur_inv_n - n) > 2):
+                    if np.abs(cur_inv_n - n) > 2:
                         # Got too far away, give up
                         raise NoConvergence(
-                            'Failed to find QNM in sequence at n={}'.format(n),
+                            "Failed to find QNM in sequence at n={}".format(n),
                         )
                     else:
                         logging.info("Trying inversion number {}".format(cur_inv_n))
@@ -220,7 +231,7 @@ class SchwOvertoneSeq(object):
                 # Ensure we start on the "positive frequency"
                 # sequence.  This only works for Schwarzscdhild because
                 # there the separation constant is real.
-                if (np.real(result) < 0):
+                if np.real(result) < 0:
                     result = -np.conjugate(result)
 
                 cf_err, n_frac = self.solver.get_cf_err()
@@ -231,19 +242,20 @@ class SchwOvertoneSeq(object):
                 if cf_conv:
                     # Done with this value of n
 
-                    logging.info("s={}, l={}, found what I think is "
-                                 "n={}, omega={}".format(self.s,
-                                                         self.l, n, result))
+                    logging.info(
+                        "s={}, l={}, found what I think is "
+                        "n={}, omega={}".format(self.s, self.l, n, result)
+                    )
 
                     self.n.append(n)
 
-                    self.omega  = np.append(self.omega,  result)
+                    self.omega = np.append(self.omega, result)
                     self.cf_err = np.append(self.cf_err, cf_err)
                     self.n_frac = np.append(self.n_frac, n_frac)
 
                     # Make sure we sort properly!
                     ind_sort = np.argsort(-np.imag(self.omega))
-                    self.omega  = self.omega[ind_sort]
+                    self.omega = self.omega[ind_sort]
                     self.cf_err = self.cf_err[ind_sort]
                     self.n_frac = self.n_frac[ind_sort]
 

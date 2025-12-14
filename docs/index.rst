@@ -1,10 +1,14 @@
-qnm's documentation: index
-==========================
+jqnm's documentation: index
+===========================
 
-`qnm` is an open source python package for computing Kerr quasinormal
+`jqnm` is a JAX-accelerated Python package for computing Kerr quasinormal
 mode frequencies, separation constants, and spherical-spheroidal
 mixing coefficients.
-For a quick start, take a look at the `usage section <README.html#usage>`_ of the Welcome node.
+
+This package is a JAX-based rewrite of the `qnm <https://github.com/duetosymmetry/qnm>`_ 
+package, providing GPU acceleration and automatic differentiation capabilities.
+
+For a quick start, take a look at the `usage section <README.html#quick-start>`_ of the README.
 
 .. toctree::
    :maxdepth: 2

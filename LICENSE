@@ -1,6 +1,10 @@
 MIT License
 
-Copyright (c) 2019 Leo C. Stein
+Copyright (c) 2024 Cedric Ewen
+Copyright (c) 2019 Leo C. Stein (original qnm package)
+
+This package is derived from the qnm package (https://github.com/duetosymmetry/qnm)
+by Leo C. Stein, which is also MIT licensed.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal

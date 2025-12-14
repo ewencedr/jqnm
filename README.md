@@ -1,227 +1,166 @@
-[![github](https://img.shields.io/badge/GitHub-qnm-blue.svg)](https://github.com/duetosymmetry/qnm)
-[![PyPI version](https://badge.fury.io/py/qnm.svg)](https://badge.fury.io/py/qnm)
-[![Conda Version](https://img.shields.io/conda/vn/conda-forge/qnm.svg)](https://anaconda.org/conda-forge/qnm)
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.2593978.svg)](https://zenodo.org/record/2593978)
-[![JOSS status](https://joss.theoj.org/papers/85532a74baaa67a24518de1365f1bcf5/status.svg)](https://joss.theoj.org/papers/85532a74baaa67a24518de1365f1bcf5)
-[![arXiv:1908.10377](https://img.shields.io/badge/arXiv-1908.10377-B31B1B.svg)](https://arxiv.org/abs/1908.10377)
-[![ascl:1910.022](https://img.shields.io/badge/ascl-1910.022-blue.svg?colorB=262255)](http://ascl.net/1910.022)
-[![license](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/duetosymmetry/qnm/blob/master/LICENSE)
-[![pytest for not-slow tests](https://github.com/duetosymmetry/qnm/actions/workflows/pytest-not-slow.yml/badge.svg)](https://github.com/duetosymmetry/qnm/actions/workflows/pytest-not-slow.yml)
-[![pytest for slow tests](https://github.com/duetosymmetry/qnm/actions/workflows/pytest-slow.yml/badge.svg)](https://github.com/duetosymmetry/qnm/actions/workflows/pytest-slow.yml)
-[![Documentation Status](https://readthedocs.org/projects/qnm/badge/?version=latest)](https://qnm.readthedocs.io/en/latest/?badge=latest)
+# jqnm - JAX-Accelerated Kerr Quasinormal Modes
 
+[![PyPI version](https://badge.fury.io/py/jqnm.svg)](https://badge.fury.io/py/jqnm)
+[![license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-# Welcome to qnm
-`qnm` is an open-source Python package for computing the Kerr
+`jqnm` is a JAX-accelerated Python package for computing Kerr black hole
 quasinormal mode frequencies, angular separation constants, and
-spherical-spheroidal mixing coefficients. The `qnm` package includes a
-Leaver solver with the [Cook-Zalutskiy spectral
-approach](https://arxiv.org/abs/1410.7698) to the angular sector, and
-a caching mechanism to avoid repeating calculations.
+spherical-spheroidal mixing coefficients.
 
-With this python package, you can compute the QNMs labeled by
-different (s,l,m,n), at a desired dimensionless spin parameter 0≤a<1.
-The angular sector is treated as a spectral decomposition of
-spin-weighted *spheroidal* harmonics into spin-weighted spherical
-harmonics.  Therefore you get the spherical-spheroidal decomposition
-coefficients for free when solving for ω and A ([see below for
-details](#spherical-spheroidal-decomposition)).
+This package is a **JAX-based rewrite** of the excellent [qnm](https://github.com/duetosymmetry/qnm) 
+package by [Leo C. Stein](https://duetosymmetry.com), providing:
 
-We have precomputed a large cache of low-lying modes (s=-2 and s=-1,
-all l<8, all n<7). These can be automatically installed with a single
-function call, and interpolated for good initial guesses for
-root-finding at some value of a.
+- **GPU acceleration** via JAX
+- **Automatic differentiation** - compute gradients of QNM frequencies with respect to spin
+- **JIT compilation** for faster repeated computations
+- Full compatibility with the original `qnm` data cache
 
 ## Installation
 
 ### PyPI
-_**qnm**_ is available on [PyPI](https://pypi.org/project/qnm/):
 
 ```shell
-pip install qnm
-```
-
-### Conda
-_**qnm**_ is available on [conda-forge](https://anaconda.org/conda-forge/qnm):
-
-```shell
-conda install -c conda-forge qnm
+pip install jqnm
 ```
 
 ### From source
 
 ```shell
-git clone https://github.com/duetosymmetry/qnm.git
-cd qnm
-python setup.py install
+git clone https://github.com/cedricewen/jqnm.git
+cd jqnm
+pip install .
 ```
 
-If you do not have root permissions, replace the last step with
-`python setup.py install --user`.  Instead of using `setup.py`
-manually, you can also replace the last step with `pip install .` or
-`pip install --user .`.
+### GPU Support
+
+For GPU acceleration, install JAX with CUDA support:
+
+```shell
+# For CUDA 12
+pip install jqnm[cuda12]
+
+# For CUDA 11  
+pip install jqnm[cuda11]
+```
 
 ## Dependencies
-All of these can be installed through pip or conda.
-* [numpy](https://docs.scipy.org/doc/numpy/user/install.html)
-* [scipy](https://www.scipy.org/install.html)
-* [numba](http://numba.pydata.org/numba-doc/latest/user/installing.html)
-* [tqdm](https://tqdm.github.io) (just for `qnm.download_data()` progress)
 
-## Documentation
+- numpy
+- scipy
+- [JAX](https://github.com/google/jax) (>=0.4.28)
+- [optimistix](https://github.com/patrick-kidger/optimistix) - differentiable root finding
+- [equinox](https://github.com/patrick-kidger/equinox)
+- tqdm (for download progress)
 
-Automatically-generated API documentation is available on [Read the Docs: qnm](https://qnm.readthedocs.io/).
+## Quick Start
 
-For a didactic introduction, you can [watch my talk at the Spring 2020 BHPToolkit Workshop](https://www.youtube.com/watch?v=9jHxs4HiMSg&t=15062s) (starting around 4:11:02 in the stream.  You can also [follow along with the `qnm` presentation notebook](https://bit.ly/qnm-pres).
+```python
+import jqnm
+
+# Download precomputed mode data (only need to do this once)
+jqnm.download_data()
+
+# Get the (2,2,0) gravitational mode
+grav_220 = jqnm.modes_cache(s=-2, l=2, m=2, n=0)
+
+# Compute QNM frequency at spin a=0.68
+omega, A, C = grav_220(a=0.68)
+print(omega)
+# (0.5239751042900845-0.08151262363119986j)
+```
+
+## Automatic Differentiation
+
+One of the key features of `jqnm` is the ability to compute gradients:
+
+```python
+import jax
+import jax.numpy as jnp
+import jqnm
+
+# Get a mode
+mode = jqnm.modes_cache(s=-2, l=2, m=2, n=0)
+
+# Define a function that returns the real part of omega
+def get_omega_real(a):
+    omega, A, C = mode(a=a)
+    return jnp.real(omega)
+
+# Compute the derivative with respect to spin
+d_omega_da = jax.grad(get_omega_real)
+print(d_omega_da(0.5))
+```
 
 ## Usage
 
-The highest-level interface is via `qnm.cached.KerrSeqCache`, which
-loads cached *spin sequences* from disk. A spin sequence is just a mode
-labeled by (s,l,m,n), with the spin a ranging from a=0 to some
-maximum, e.g. 0.9995. A large number of low-lying spin sequences have
-been precomputed and are available online. The first time you use the
-package, download the precomputed sequences:
+The highest-level interface is via `jqnm.modes_cache`, which loads cached 
+*spin sequences* from disk. A spin sequence is a mode labeled by (s,l,m,n), 
+with the spin `a` ranging from a=0 to some maximum (e.g., 0.9995).
 
 ```python
-import qnm
-
-qnm.download_data() # Only need to do this once
-# Trying to fetch https://duetosymmetry.com/files/qnm/data.tar.bz2
-# Trying to decompress file /<something>/qnm/data.tar.bz2
-# Data directory /<something>/qnm/data contains 860 pickle files
-```
-
-Then, use `qnm.modes_cache` to load a
-`qnm.spinsequence.KerrSpinSeq` of interest. If the mode is not
-available, it will try to compute it (see detailed documentation for
-how to control that calculation).
-
-```python
-grav_220 = qnm.modes_cache(s=-2,l=2,m=2,n=0)
-omega, A, C = grav_220(a=0.68)
-print(omega)
-# (0.5239751042900845-0.08151262363119974j)
-```
-
-Calling a spin sequence `seq` with `seq(a)` will return the complex
-quasinormal mode frequency omega, the complex angular separation
-constant A, and a vector C of coefficients for decomposing the
-associated spin-weighted spheroidal harmonics as a sum of
-spin-weighted spherical harmonics ([see below for
-details](#spherical-spheroidal-decomposition)).
-
-Visual inspections of modes are very useful to check if the solver is
-behaving well. This is easily accomplished with matplotlib. Here are
-some partial examples (for the full examples, see the file
-[`notebooks/examples.ipynb`](notebooks/examples.ipynb) in the source repo):
-
-```python
+import jqnm
 import numpy as np
-import matplotlib as mpl
 import matplotlib.pyplot as plt
 
+# Get multiple overtones
 s, l, m = (-2, 2, 2)
-mode_list = [(s, l, m, n) for n in np.arange(0,7)]
-modes = { ind : qnm.modes_cache(*ind) for ind in mode_list }
+mode_list = [(s, l, m, n) for n in np.arange(0, 7)]
+modes = {ind: jqnm.modes_cache(*ind) for ind in mode_list}
 
+# Plot omega trajectories
+plt.figure(figsize=(10, 4))
 plt.subplot(1, 2, 1)
 for mode, seq in modes.items():
-    plt.plot(np.real(seq.omega),np.imag(seq.omega))
+    plt.plot(np.real(seq.omega), np.imag(seq.omega))
+plt.xlabel('Re(ω)')
+plt.ylabel('Im(ω)')
+plt.title('QNM Frequencies')
 
 plt.subplot(1, 2, 2)
 for mode, seq in modes.items():
-    plt.plot(np.real(seq.A),np.imag(seq.A))
+    plt.plot(np.real(seq.A), np.imag(seq.A))
+plt.xlabel('Re(A)')
+plt.ylabel('Im(A)')
+plt.title('Separation Constants')
+plt.tight_layout()
+plt.show()
 ```
 
-Which results in the following figure (modulo formatting):
+## Spherical-Spheroidal Decomposition
 
-![example_22n plot](notebooks/example_22n.png)
+The angular dependence of QNMs are spin-weighted *spheroidal* harmonics. 
+The package returns coefficients C for expressing spheroidals in terms of 
+sphericals:
 
 ```python
-s, l, n = (-2, 2, 0)
-mode_list = [(s, l, m, n) for m in np.arange(-l,l+1)]
-modes = { ind : qnm.modes_cache(*ind) for ind in mode_list }
+import jqnm
 
-plt.subplot(1, 2, 1)
-for mode, seq in modes.items():
-    plt.plot(np.real(seq.omega),np.imag(seq.omega))
+grav_220 = jqnm.modes_cache(s=-2, l=2, m=2, n=0)
+omega, A, C = grav_220(a=0.68)
 
-plt.subplot(1, 2, 2)
-for mode, seq in modes.items():
-    plt.plot(np.real(seq.A),np.imag(seq.A))
+# Get the corresponding l values
+ells = jqnm.angular.ells(s=-2, m=2, l_max=grav_220.l_max)
+print(f"ell values: {ells}")
+print(f"C coefficients: {C}")
 ```
 
-Which results in the following figure (modulo formatting):
+## Credits and Acknowledgments
 
-![example_2m0 plot](notebooks/example_2m0.png)
+This package is a JAX-based rewrite of the [qnm](https://github.com/duetosymmetry/qnm) 
+package created by [Leo C. Stein](https://duetosymmetry.com). The original package 
+and its scientific foundations are described in:
 
-## Precision and validation
+> Stein, Leo C. (2019). *qnm: A Python package for calculating Kerr quasinormal 
+> modes, separation constants, and spherical-spheroidal mixing coefficients.* 
+> Journal of Open Source Software, 4(42), 1683. 
+> [doi:10.21105/joss.01683](https://doi.org/10.21105/joss.01683)
+> [arXiv:1908.10377](https://arxiv.org/abs/1908.10377)
 
-The default tolerances for continued fractions, `cf_tol`, is 1e-10, and
-for complex root-polishing, `tol`, is DBL_EPSILON≅1.5e-8.  These can
-be changed at runtime so you can re-polish the cached values to higher
-precision.
+If you use this package in academic work, please cite the original `qnm` paper above.
 
-[Greg Cook's precomputed data
-tables](https://zenodo.org/record/2650358) (which were computed with
-arbitrary-precision arithmetic) can be used for validating the results
-of this code.  See the comparison notebook
-[`notebooks/Comparison-against-Cook-data.ipynb`](notebooks/Comparison-against-Cook-data.ipynb)
-to see such a comparison, which can be modified to compare any of the
-available modes.
+## License
 
-## Spherical-spheroidal decomposition
+MIT License - see [LICENSE](LICENSE) for details.
 
-The angular dependence of QNMs are naturally spin-weighted *spheroidal*
-harmonics.  The spheroidals are not actually a complete orthogonal
-basis set.  Meanwhile spin-weighted *spherical* harmonics are complete
-and orthonormal, and are used much more commonly.  Therefore you
-typically want to express a spheroidal (on the left hand side) in
-terms of sphericals (on the right hand side),
-
-![equation `$${}_s Y_{\\ell m}(\\theta, \\phi; a\\omega) = {\\sum_{\\ell'=\\ell_{\\min} (s,m)}^{\\ell_\\max}} C_{\\ell' \\ell m}(a\\omega)\\ {}_s Y_{\\ell' m}(\\theta, \\phi) \\,.$$`](notebooks/SWSH.svg)
-
-Here ℓmin=max(|m|,|s|) and ℓmax can be chosen at run time.  The C
-coefficients are returned as a complex ndarray, with the zeroth
-element corresponding to ℓmin.
-To avoid indexing errors, you can get the ndarray of ℓ values by
-calling `qnm.angular.ells`, e.g.
-
-```
-ells = qnm.angular.ells(s=-2, m=2, l_max=grav_220.l_max)
-```
-
-## Contributing
-Contributions are welcome! There are at least two ways to contribute to this codebase:
-
-1. If you find a bug or want to suggest an enhancement, use the [issue tracker](https://github.com/duetosymmetry/qnm/issues) on GitHub. It's a good idea to look through past issues, too, to see if anybody has run into the same problem or made the same suggestion before.
-2. If you will write or edit the python code, we use the [fork and pull request](https://help.github.com/articles/creating-a-pull-request-from-a-fork/) model.
-
-You are also allowed to make use of this code for other purposes, as detailed in the [MIT license](LICENSE). For any type of contribution, please follow the [code of conduct](CODE_OF_CONDUCT.md).
-
-## How to cite
-If this package contributes to a project that leads to a publication,
-please acknowledge this by citing the `qnm` article in JOSS.  The
-following BibTeX entry is available in the `qnm.__bibtex__` string:
-```
-@article{Stein:2019mop,
-      author         = "Stein, Leo C.",
-      title          = "{qnm: A Python package for calculating Kerr quasinormal
-                        modes, separation constants, and spherical-spheroidal
-                        mixing coefficients}",
-      journal        = "J. Open Source Softw.",
-      volume         = "4",
-      year           = "2019",
-      number         = "42",
-      pages          = "1683",
-      doi            = "10.21105/joss.01683",
-      eprint         = "1908.10377",
-      archivePrefix  = "arXiv",
-      primaryClass   = "gr-qc",
-      SLACcitation   = "%%CITATION = ARXIV:1908.10377;%%"
-}
-```
-
-## Credits
-The code is developed and maintained by [Leo C. Stein](https://duetosymmetry.com).
+This package is derived from [qnm](https://github.com/duetosymmetry/qnm) 
+(Copyright © 2019 Leo C. Stein), which is also MIT licensed.

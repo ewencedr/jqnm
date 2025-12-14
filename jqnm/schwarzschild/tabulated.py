@@ -1,4 +1,6 @@
 """ Computing, loading, and storing tabulated Schwarzschild QNMs.
+
+This module uses JAX for GPU acceleration and automatic differentiation.
 """
 
 from __future__ import division, print_function, absolute_import
@@ -72,8 +74,8 @@ def build_Schw_dict(*args, **kwargs):
             for n, (omega, cf_err, n_frac) in enumerate(zip(Schw_seq.omega,
                                                             Schw_seq.cf_err,
                                                             Schw_seq.n_frac)):
-                Schw_dict[(s,l,n)] = (np.asscalar(omega),
-                                      np.asscalar(cf_err),
+                Schw_dict[(s,l,n)] = (complex(omega),
+                                      float(cf_err),
                                       int(n_frac))
                 Schw_dict[(-s,l,n)] = Schw_dict[(s,l,n)]
 
