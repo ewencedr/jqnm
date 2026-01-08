@@ -59,10 +59,10 @@ def get_cachedir():
     pattern similar to matplotlib's treatment of config/cache dirs.
 
     The directory is chosen as follows:
-    1. If the QNMCACHEDIR environment variable is supplied, choose that.
+    1. If the JQNMCACHEDIR environment variable is supplied, choose that.
     2a. On Linux, follow the XDG specification and look first in
         `$XDG_CACHE_HOME`, if defined, or `$HOME/.cache`.
-    2b. On other platforms, choose `$HOME/.qnm`.
+    2b. On other platforms, choose `$HOME/.jqnm`.
     3. If the chosen directory exists and is writable, use that as the
        configuration directory.
     4. A writable directory could not be found; return None.
@@ -75,13 +75,13 @@ def get_cachedir():
         str(Path(get_home(), ".cache")) if get_home() else None
     )
 
-    cachedir = os.environ.get("QNMCACHEDIR")
+    cachedir = os.environ.get("JQNMCACHEDIR")
     if cachedir:
         cachedir = Path(cachedir).resolve()
     elif sys.platform.startswith(("linux", "freebsd")) and xdg_cache_dir:
-        cachedir = Path(xdg_cache_dir, "qnm")
+        cachedir = Path(xdg_cache_dir, "jqnm")
     elif get_home():
-        cachedir = Path(get_home(), ".qnm")
+        cachedir = Path(get_home(), ".jqnm")
     else:
         cachedir = None
 
@@ -233,7 +233,9 @@ def load_cached_mode(s, l, m, n):
             "Could not load Kerr QNM sequence from file {}.".format(pickle_path)
         )
         if not hasattr(load_cached_mode, "have_warned"):
-            logging.warn("Do you need to run qnm.download_data()?")
+            logging.warn(
+                "Note: jqnm will compute modes on first use and cache them for future runs."
+            )
             load_cached_mode.have_warned = True
 
     return spin_seq
@@ -246,18 +248,18 @@ class KerrSeqCache(object):
     """High-level caching interface for getting precomputed spin sequences.
 
     An instance of :class:`KerrSeqCache` will return instances of
-    :class:`qnm.spinsequence.KerrSpinSeq` from memory or disk. If a
+    :class:`jqnm.spinsequence.KerrSpinSeq` from memory or disk. If a
     spin sequence is neither in memory nor on disk then it will be
-    computed and returned.
+    computed, saved to disk for future use, and returned.
 
-    Use :meth:`download_data` to fetch a collection of precomputed
-    spin sequences from the web.
+    Modes are automatically computed and cached on first use, eliminating
+    the need to manually download data.
 
     Parameters
     ----------
     init_schw: bool, optional [default: False]
       Value of init flag to pass to
-      :class:`qnm.schwarzschild.tabulated.QNMDict`. You should set this to
+      :class:`jqnm.schwarzschild.tabulated.QNMDict`. You should set this to
       True the first time in a session that you create a QNMDict
       (most likely via this class).
 
@@ -267,15 +269,15 @@ class KerrSeqCache(object):
 
     compute_pars: dict, optional [default: None]
       A dict of parameters to pass to
-      :class:`qnm.spinsequence.KerrSpinSeq` if computing a mode
+      :class:`jqnm.spinsequence.KerrSpinSeq` if computing a mode
       sequence from scratch.
 
     Examples
     --------
 
-    >>> import qnm
-    >>> # qnm.download_data() # Only need to do this once
-    >>> grav_220 = qnm.modes_cache(s=-2,l=2,m=2,n=0)
+    >>> import jqnm
+    >>> # Modes are computed and cached automatically on first use
+    >>> grav_220 = jqnm.modes_cache(s=-2,l=2,m=2,n=0)
     >>> omega, A, C = grav_220(a=0.68)
     >>> print(omega)
     (0.5239751042900845-0.08151262363119986j)
@@ -377,6 +379,15 @@ class KerrSeqCache(object):
             computed = KerrSpinSeq(**the_pars)
             computed.do_find_sequence()
             self.seq_dict[key] = computed
+
+            # Automatically save to disk for future use
+            logging.info(
+                "Saving computed mode s={}, l={}, m={}, n={} to disk cache".format(
+                    s, l, m, n
+                )
+            )
+            write_mode(computed)
+
             return computed
 
         return None
@@ -540,12 +551,17 @@ class _TqdmUpTo(tqdm):
 
 # NOTE This URL is hardcoded. The data version to use may need to
 # be updated if fields inside classes change.
+# This URL points to the old qnm package data
 _data_url = "https://duetosymmetry.com/files/qnm/data-0.4.0.tar.bz2"
 
 
 def download_data(overwrite=False):
     """Fetch and decompress tarball of precomputed spin sequences from
     the web.
+
+    NOTE: This function downloads data from the original qnm package. The jqnm
+    package automatically computes and caches modes on first use, so calling this
+    function is typically not necessary.
 
     Parameters
     ----------

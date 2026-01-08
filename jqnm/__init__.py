@@ -14,7 +14,7 @@ Examples
 --------
 
 >>> import jqnm
->>> # jqnm.download_data() # Only need to do this once
+>>> # Modes are computed and cached automatically on first use
 >>> grav_220 = jqnm.modes_cache(s=-2, l=2, m=2, n=0)
 >>> omega, A, C = grav_220(a=0.68)
 >>> print(omega)

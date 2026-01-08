@@ -13,7 +13,8 @@ package by [Leo C. Stein](https://duetosymmetry.com), providing:
 - **GPU acceleration** via JAX
 - **Automatic differentiation** - compute gradients of QNM frequencies with respect to spin
 - **JIT compilation** for faster repeated computations
-- Full compatibility with the original `qnm` data cache
+- **Automatic caching** - modes computed once and cached at `~/.jqnm/`
+- Full compatibility with the original `qnm` package interface
 
 ## Installation
 
@@ -57,17 +58,17 @@ pip install jqnm[cuda11]
 ```python
 import jqnm
 
-# Download precomputed mode data (only need to do this once)
-jqnm.download_data()
-
 # Get the (2,2,0) gravitational mode
+# On first use, modes are computed and cached automatically
 grav_220 = jqnm.modes_cache(s=-2, l=2, m=2, n=0)
 
 # Compute QNM frequency at spin a=0.68
 omega, A, C = grav_220(a=0.68)
 print(omega)
-# (0.5239751042900845-0.08151262363119986j)
+# (0.5239751042900859-0.08151262363117728j)
 ```
+
+Modes are automatically computed on first use and cached to `~/.jqnm/data/` for subsequent runs.
 
 ## Automatic Differentiation
 
@@ -94,8 +95,9 @@ print(d_omega_da(0.5))
 ## Usage
 
 The highest-level interface is via `jqnm.modes_cache`, which loads cached 
-*spin sequences* from disk. A spin sequence is a mode labeled by (s,l,m,n), 
-with the spin `a` ranging from a=0 to some maximum (e.g., 0.9995).
+*spin sequences* from disk or computes them on first use. A spin sequence is 
+a mode labeled by (s,l,m,n), with the spin `a` ranging from a=0 to some maximum 
+(e.g., 0.9995).
 
 ```python
 import jqnm

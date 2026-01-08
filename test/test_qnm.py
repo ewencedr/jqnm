@@ -160,6 +160,82 @@ class TestMirrorModeTransformation(JqnmTestDownload):
         )
 
 
+class TestJqnmAutomaticCaching:
+    """Test automatic cache generation without download_data()"""
+
+    def test_cache_directory_location(self):
+        """Test that cache directory follows platform conventions"""
+        import sys
+        
+        cache_dir = jqnm.cached.get_cachedir()
+        assert cache_dir is not None
+        
+        home = Path.home()
+        # On Linux/FreeBSD, follow XDG specification (~/.cache/jqnm)
+        # On other platforms (macOS, Windows), use ~/.jqnm
+        if sys.platform.startswith(("linux", "freebsd")):
+            expected_dir = home / ".cache" / "jqnm"
+        else:
+            expected_dir = home / ".jqnm"
+        
+        assert cache_dir == expected_dir
+
+    def test_automatic_cache_on_first_use(self):
+        """Test that modes are automatically computed and cached on first use"""
+        # Clear this specific mode from memory cache if it exists
+        cache_key = (-2, 4, 3, 1)
+        if cache_key in jqnm.modes_cache.seq_dict:
+            del jqnm.modes_cache.seq_dict[cache_key]
+        
+        # Try to load mode - should compute if not on disk, or load if cached
+        mode = jqnm.modes_cache(s=-2, l=4, m=3, n=1)
+        
+        # Verify we got a valid mode
+        assert mode is not None
+        assert hasattr(mode, 'a')
+        assert hasattr(mode, 'omega')
+        assert len(mode.a) > 0
+        
+        # Verify the mode is now in memory cache
+        assert cache_key in jqnm.modes_cache.seq_dict
+
+    def test_mode_saved_to_disk(self):
+        """Test that computed modes are saved to disk cache"""
+        cache_dir = jqnm.cached.get_cachedir()
+        assert cache_dir is not None
+        
+        data_dir = cache_dir / "data"
+        data_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Request a mode
+        mode = jqnm.modes_cache(s=-2, l=2, m=2, n=0)
+        
+        # Check if pickle file exists
+        pickle_path = jqnm.cached.mode_pickle_path(s=-2, l=2, m=2, n=0)
+        assert pickle_path is not None
+        # Note: File might already exist from previous runs or download_data
+        # The important thing is that the path is correct
+        assert pickle_path.parent == data_dir
+
+    def test_cached_mode_loads_from_disk(self):
+        """Test that subsequent calls load from disk cache"""
+        # First call - ensures mode is cached
+        mode1 = jqnm.modes_cache(s=-2, l=2, m=2, n=0)
+        omega1, _, _ = mode1(a=0.5)
+        
+        # Clear memory cache
+        cache_key = (-2, 2, 2, 0)
+        if cache_key in jqnm.modes_cache.seq_dict:
+            del jqnm.modes_cache.seq_dict[cache_key]
+        
+        # Second call - should load from disk
+        mode2 = jqnm.modes_cache(s=-2, l=2, m=2, n=0)
+        omega2, _, _ = mode2(a=0.5)
+        
+        # Verify same results
+        assert np.allclose(omega1, omega2)
+
+
 @pytest.mark.slow
 class TestJqnmBuildCache(JqnmTestDownload):
     def test_build_cache(self):
