@@ -164,11 +164,20 @@ class TestJqnmAutomaticCaching:
     """Test automatic cache generation without download_data()"""
 
     def test_cache_directory_location(self):
-        """Test that cache directory is ~/.jqnm/"""
+        """Test that cache directory follows platform conventions"""
+        import sys
+        
         cache_dir = jqnm.cached.get_cachedir()
         assert cache_dir is not None
+        
         home = Path.home()
-        expected_dir = home / ".jqnm"
+        # On Linux/FreeBSD, follow XDG specification (~/.cache/jqnm)
+        # On other platforms (macOS, Windows), use ~/.jqnm
+        if sys.platform.startswith(("linux", "freebsd")):
+            expected_dir = home / ".cache" / "jqnm"
+        else:
+            expected_dir = home / ".jqnm"
+        
         assert cache_dir == expected_dir
 
     def test_automatic_cache_on_first_use(self):
