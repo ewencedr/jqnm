@@ -4,19 +4,19 @@ import sys
 # list of images/python combinations can be found here:
 # https://raw.githubusercontent.com/actions/python-versions/main/versions-manifest.json
 
-# JAX requires Python 3.9+
-python_version = ["3.9", "3.10", "3.11", "3.12"]
+# JAX requires Python 3.10+
+python_version = ["3.10", "3.11", "3.12", "3.13"]
 
 # OS versions for each Python version
 ubuntu_version = ["ubuntu-22.04", "ubuntu-24.04", "ubuntu-24.04", "ubuntu-24.04"]
 macos_version = ["macos-latest", "macos-latest", "macos-latest", "macos-latest"]
-windows_version = [None, "windows-latest", "windows-latest", "windows-latest"]
+windows_version = ["windows-latest", "windows-latest", "windows-latest", "windows-latest"]
 
 # Package combinations to test (packages, min_python_version)
 # JAX has specific numpy/scipy requirements
 packages = [
     # Basic JAX installation (uses requirements.txt defaults)
-    ("", "3.9"),
+    ("", "3.10"),
     # Test with specific numpy versions
     ("'numpy~=1.26.0'", "3.10"),
     ("'numpy>=2.0'", "3.10"),
