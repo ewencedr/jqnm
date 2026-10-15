@@ -464,26 +464,31 @@ class TestModesCacheComparison:
 class TestSpinSequenceComparison:
     """Compare spin sequence behavior against original qnm."""
 
-    def test_spin_sequence_a_values(self):
-        """Test that spin sequences have consistent spin values."""
+    def test_spin_sequence_a_range(self):
+        """Test that spin sequences cover the same range of spins.
+
+        The spin grids themselves are chosen adaptively during the solve,
+        so the two packages need not place the points identically.
+        """
         seq_jqnm = jqnm.modes_cache(s=-2, l=2, m=2, n=0)
         seq_orig = qnm_original.modes_cache(s=-2, l=2, m=2, n=0)
-        
-        # Both should have same cached a values
-        assert len(seq_jqnm.a) == len(seq_orig.a), \
-            f"Different number of cached a values"
-        
-        assert np.allclose(seq_jqnm.a, seq_orig.a), \
-            f"Cached a values differ"
+
+        a_jqnm = np.asarray(seq_jqnm.a)
+        a_orig = np.asarray(seq_orig.a)
+
+        assert a_jqnm[0] == a_orig[0] == 0.0
+        assert np.isclose(a_jqnm[-1], a_orig[-1]), \
+            f"Different a_max: jqnm={a_jqnm[-1]}, original={a_orig[-1]}"
 
     def test_spin_sequence_omega_values(self):
-        """Test that spin sequences have consistent omega values."""
+        """Test that jqnm reproduces omega at the original's tabulated spins."""
         seq_jqnm = jqnm.modes_cache(s=-2, l=2, m=2, n=0)
         seq_orig = qnm_original.modes_cache(s=-2, l=2, m=2, n=0)
-        
-        omega_jqnm = np.array(seq_jqnm.omega)
-        omega_orig = np.array(seq_orig.omega)
-        
+
+        a_orig = np.asarray(seq_orig.a)
+        omega_orig = np.asarray(seq_orig.omega)
+        omega_jqnm = np.array([complex(seq_jqnm(a=a)[0]) for a in a_orig])
+
         assert np.allclose(omega_jqnm, omega_orig, rtol=1e-6), \
             f"Cached omega values differ"
 
