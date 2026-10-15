@@ -27,7 +27,7 @@ pip install jqnm
 ### From source
 
 ```shell
-git clone https://github.com/cedricewen/jqnm.git
+git clone https://github.com/ewencedr/jqnm.git
 cd jqnm
 pip install .
 ```
