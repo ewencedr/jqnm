@@ -12,14 +12,16 @@ ubuntu_version = ["ubuntu-22.04", "ubuntu-24.04", "ubuntu-24.04", "ubuntu-24.04"
 macos_version = ["macos-latest", "macos-latest", "macos-latest", "macos-latest"]
 windows_version = ["windows-latest", "windows-latest", "windows-latest", "windows-latest"]
 
-# Package combinations to test (packages, min_python_version)
+# Package combinations to test (packages, min_python_version, max_python_version)
 # JAX has specific numpy/scipy requirements
 packages = [
     # Basic JAX installation (uses requirements.txt defaults)
-    ("", "3.10"),
-    # Test with specific numpy versions
-    ("'numpy~=1.26.0'", "3.10"),
-    ("'numpy>=2.0'", "3.10"),
+    ("", "3.10", None),
+    # Test with specific numpy versions.  numpy 1.26 has no wheels for
+    # Python >= 3.13; pip would build it from source (MinGW on Windows,
+    # which numpy marks as experimental and which crashes).
+    ("'numpy~=1.26.0'", "3.10", "3.12"),
+    ("'numpy>=2.0'", "3.10", None),
 ]
 
 configurations = []
@@ -35,6 +37,10 @@ for idx_pv, pv in enumerate(python_version):
             min_python_version = tuple(int(_) for _ in pk[1].split("."))
             if current_python_version < min_python_version:
                 continue
+            if pk[2] is not None:
+                max_python_version = tuple(int(_) for _ in pk[2].split("."))
+                if current_python_version > max_python_version:
+                    continue
 
             current_configuration = {
                 "python-version": pv,
