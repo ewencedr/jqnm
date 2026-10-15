@@ -6,11 +6,7 @@ This module uses JAX for GPU acceleration and automatic differentiation.
 from __future__ import division, print_function, absolute_import
 
 import logging
-import pickle
-try:
-    from pathlib import Path # py 3
-except ImportError:
-    from pathlib2 import Path # py 2
+from pathlib import Path
 
 import numpy as np
 
@@ -83,16 +79,20 @@ def build_Schw_dict(*args, **kwargs):
 
 ############################################################
 def default_pickle_file():
-    """Give the default path of the QNM dict pickle file, `<dirname of this file>/data/Schw_dict.pickle`.
+    """Give the default path of the QNM dict file, `<dirname of this file>/data/Schw_dict.npz`.
+
+    The file holds plain NumPy arrays (see :meth:`QNMDict.write_dict`), so
+    loading it needs neither pickle nor the original `qnm` package.  The
+    function keeps its historical name for compatibility.
 
     Returns
     -------
     Path object
-      `<dirname of this file>/data/Schw_dict.pickle`
+      `<dirname of this file>/data/Schw_dict.npz`
 
     """
 
-    return Path(__file__).parent.resolve() / 'data' / 'Schw_dict.pickle'
+    return Path(__file__).parent.resolve() / 'data' / 'Schw_dict.npz'
 
 ############################################################
 
@@ -101,7 +101,7 @@ class QNMDict(object):
 
     This class uses the "borg" pattern, so the table of precomputed
     values will be shared amongst all instances of the class.  A set
-    of precomputed QNMs can be loaded/stored from a pickle file with
+    of precomputed QNMs can be loaded/stored from an `.npz` file with
     :meth:`load_dict()` and :meth:`write_dict()`.  The main interface
     is via the special :meth:`__call__()` method which is invoked via
     `object(s,l,n)`.  If the QNM labeled by (s,l,n) has already been
@@ -113,7 +113,7 @@ class QNMDict(object):
     seq_dict: dict
       Keys are tuples (s,l) which label an overtone sequence of QNMs.
       Values are instances of
-      :class:`qnm.schwarzschild.overtonesequence.SchwOvertoneSeq`.
+      :class:`jqnm.schwarzschild.overtonesequence.SchwOvertoneSeq`.
 
     loaded_from_disk: bool
       Whether or not any modes have been loaded from disk
@@ -125,7 +125,7 @@ class QNMDict(object):
       this instance.
 
     dict_pickle_file: string or Path, optional [default: from default_pickle_file()]
-      Path to pickle file that holds precomputed QNMs. If the value is
+      Path to the `.npz` file that holds precomputed QNMs. If the value is
       None, get the default from :meth:`default_pickle_file()`.
     """
 
@@ -152,7 +152,7 @@ class QNMDict(object):
         Parameters
         ----------
         dict_pickle_file: string or Path [default: from default_pickle_file()]
-          Filename for reading (or writing) dict of Schwarzschild QNMs
+          `.npz` file written by :meth:`write_dict()`.
 
         """
 
@@ -160,19 +160,20 @@ class QNMDict(object):
         dict_pickle_file = Path(dict_pickle_file)
 
         try:
-            with dict_pickle_file.open('rb') as handle:
+            with np.load(dict_pickle_file, allow_pickle=False) as data:
                 logging.info('Loading Schw QNM dict from file {}'.format(dict_pickle_file))
-                loaded = pickle.load(handle)
-                self.seq_dict.update(loaded)
-                self.loaded_from_disk = True
-        except UnicodeDecodeError as e:
-            with dict_pickle_file.open('rb') as handle:
-                logging.info('Trying latin1 encoding.')
-                loaded = pickle.load(handle, encoding='latin1')
-                self.seq_dict.update(loaded)
-                self.loaded_from_disk = True
-        except:
-            logging.info("Could not load Schw QNM dict from file {}".format(dict_pickle_file))
+                bounds = np.concatenate([[0], np.cumsum(data['seq_len'])])
+                for i, (s, l) in enumerate(zip(data['s'], data['l'])):
+                    lo, hi = bounds[i], bounds[i + 1]
+                    seq = SchwOvertoneSeq(s=int(s), l=int(l), n_max=int(hi - lo - 1))
+                    seq.omega = data['omega'][lo:hi]
+                    seq.cf_err = data['cf_err'][lo:hi]
+                    seq.n_frac = data['n_frac'][lo:hi]
+                    seq.n = list(range(hi - lo))
+                    self.seq_dict[(int(s), int(l))] = seq
+            self.loaded_from_disk = True
+        except (OSError, KeyError, ValueError) as e:
+            logging.info("Could not load Schw QNM dict from file {}: {}".format(dict_pickle_file, e))
             self.loaded_from_disk = False
 
         return
@@ -180,10 +181,14 @@ class QNMDict(object):
     def write_dict(self, dict_pickle_file=default_pickle_file()):
         """Write the current state of the QNM dict to disk.
 
+        The file is an `.npz` archive of plain arrays: `s`, `l` and
+        `seq_len` per overtone sequence, and `omega`, `cf_err`, `n_frac`
+        concatenated over all sequences in that order.
+
         Parameters
         ----------
         dict_pickle_file: string [default: from default_pickle_file()]
-          Filename for reading (or writing) dict of Schwarzschild QNMs
+          Filename for writing the dict of Schwarzschild QNMs
         """
 
         # convert string to Path (does nothing to Path object)
@@ -192,12 +197,23 @@ class QNMDict(object):
         pickle_dir = dict_pickle_file.parent.resolve()
         pickle_dir.mkdir(parents=True, exist_ok=True)
 
+        keys = sorted(self.seq_dict.keys())
+        seqs = [self.seq_dict[k] for k in keys]
+
         try:
             with dict_pickle_file.open('wb') as handle:
                 logging.info("Writing Schw QNM dict to file {}".format(dict_pickle_file))
-                pickle.dump(self.seq_dict, handle, protocol=pickle.HIGHEST_PROTOCOL)
-        except:
-            logging.warn("Could not write Schw QNM dict to file {}".format(dict_pickle_file))
+                np.savez(
+                    handle,
+                    s=np.array([seq.s for seq in seqs], dtype=int),
+                    l=np.array([seq.l for seq in seqs], dtype=int),
+                    seq_len=np.array([len(seq.omega) for seq in seqs], dtype=int),
+                    omega=np.concatenate([seq.omega for seq in seqs]).astype(complex),
+                    cf_err=np.concatenate([seq.cf_err for seq in seqs]).astype(float),
+                    n_frac=np.concatenate([seq.n_frac for seq in seqs]).astype(float),
+                )
+        except OSError:
+            logging.warning("Could not write Schw QNM dict to file {}".format(dict_pickle_file))
 
         return
 
