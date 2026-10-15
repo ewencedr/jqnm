@@ -40,6 +40,18 @@ from .schwarzschild.tabulated import QNMDict
 # TODO should all the functions be static member functions? No, I don't
 # think so
 
+# KerrSpinSeq parameters for every mode this package computes: on first use
+# in KerrSeqCache and in build_package_default_cache.  They match the
+# precomputed data of the original qnm package (spin sequences up to
+# a = 0.9995).
+DEFAULT_COMPUTE_PARS = {
+    "a_max": 0.9995,
+    "tol": 1e-10,
+    "cf_tol": np.sqrt(np.finfo(float).eps),
+    "delta_a": 2.5e-3,
+    "Nr_max": 6000,
+}
+
 
 # Taken from matplotlib
 def get_home():
@@ -270,7 +282,8 @@ class KerrSeqCache(object):
     compute_pars: dict, optional [default: None]
       A dict of parameters to pass to
       :class:`jqnm.spinsequence.KerrSpinSeq` if computing a mode
-      sequence from scratch.
+      sequence from scratch.  They override :data:`DEFAULT_COMPUTE_PARS`
+      (spin sequences up to a = 0.9995, as in the original qnm data).
 
     Examples
     --------
@@ -374,7 +387,8 @@ class KerrSeqCache(object):
                 "Mode not in cache, or on disk, trying to "
                 "compute s={}, l={}, m={}, n={}".format(s, l, m, n)
             )
-            the_pars = dict(compute_pars)  # Make a copy
+            the_pars = dict(DEFAULT_COMPUTE_PARS)
+            the_pars.update(compute_pars)
             the_pars.update({"s": s, "l": l, "m": m, "n": n})
             computed = KerrSpinSeq(**the_pars)
             computed.do_find_sequence()
@@ -425,21 +439,12 @@ def build_package_default_cache(ksc):
 
     QNMDict(init=True)
 
-    a_max = 0.9995
-    tol = 1e-10
-    cf_tol = np.sqrt(np.finfo(float).eps)
-    delta_a = 2.5e-3
-    Nr_max = 6000
+    ksc.compute_pars.update(DEFAULT_COMPUTE_PARS)
 
-    ksc.compute_pars.update(
-        {
-            "a_max": a_max,
-            "tol": tol,
-            "cf_tol": cf_tol,
-            "delta_a": delta_a,
-            "Nr_max": Nr_max,
-        }
-    )
+    # Base values that the rerun passes below scale
+    tol = DEFAULT_COMPUTE_PARS["tol"]
+    cf_tol = DEFAULT_COMPUTE_PARS["cf_tol"]
+    Nr_max = DEFAULT_COMPUTE_PARS["Nr_max"]
 
     # Known modes that become algebraically special
     modes_to_avoid = [(-1, 1, 0, 6)]
