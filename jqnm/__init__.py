@@ -40,7 +40,7 @@ jax.config.update("jax_enable_x64", True)
 from ._version import __version__
 
 __copyright__ = "Copyright (C) 2024 Cedric Ewen"
-__email__ = ""  # Add your email here
+__email__ = "chessdric@gmail.com"
 __status__ = "beta"
 __author__ = "Cedric Ewen"
 __license__ = """
