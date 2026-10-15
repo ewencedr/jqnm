@@ -70,6 +70,11 @@ print(omega)
 
 Modes are automatically computed on first use and cached to `~/.jqnm/data/` for subsequent runs.
 
+> **Note:** `import jqnm` enables 64-bit precision in JAX
+> (`jax.config.update("jax_enable_x64", True)`), because the continued-fraction
+> root finding needs double precision. The setting is global, so it applies to
+> all JAX code in the same process.
+
 ## Automatic Differentiation
 
 One of the key features of `jqnm` is the ability to compute gradients:
