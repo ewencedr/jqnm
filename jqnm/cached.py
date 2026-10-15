@@ -31,6 +31,7 @@ except ImportError:
 from tqdm import tqdm
 import tarfile
 
+import jax
 import numpy as np
 
 from .angular import l_min
@@ -446,6 +447,16 @@ def build_package_default_cache(ksc):
     cf_tol = DEFAULT_COMPUTE_PARS["cf_tol"]
     Nr_max = DEFAULT_COMPUTE_PARS["Nr_max"]
 
+    def compute(s, l, m, n):
+        try:
+            ksc(s, l, m, n)
+        finally:
+            # The solver compiles a new program for each combination of its
+            # static arguments (s, m, n_inv, Nr, tolerances); dropping them
+            # after each mode keeps memory flat (~1 GB) instead of growing
+            # by ~0.2 GB per mode.
+            jax.clear_caches()
+
     # Known modes that become algebraically special
     modes_to_avoid = [(-1, 1, 0, 6)]
 
@@ -463,7 +474,7 @@ def build_package_default_cache(ksc):
                         print("Skipping known mode {}".format((s, l, m, n)))
                         continue
                     try:
-                        ksc(s, l, m, n)
+                        compute(s, l, m, n)
                     except:
                         reruns.append((s, l, m, n))
 
@@ -480,7 +491,7 @@ def build_package_default_cache(ksc):
     )
     for s, l, m, n in reruns:
         try:
-            ksc(s, l, m, n)
+            compute(s, l, m, n)
         except:
             re2runs.append((s, l, m, n))
 
@@ -503,7 +514,7 @@ def build_package_default_cache(ksc):
     re3runs = []
     for s, l, m, n in re2runs:
         try:
-            ksc(s, l, m, n)
+            compute(s, l, m, n)
         except:
             re3runs.append((s, l, m, n))
 
@@ -525,7 +536,7 @@ def build_package_default_cache(ksc):
 
     # This is the last round of reruns we need to do
     for s, l, m, n in re3runs:
-        ksc(s, l, m, n)
+        compute(s, l, m, n)
 
     return ksc
 
