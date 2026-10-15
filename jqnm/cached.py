@@ -41,16 +41,15 @@ from .schwarzschild.tabulated import QNMDict
 # TODO should all the functions be static member functions? No, I don't
 # think so
 
-# KerrSpinSeq parameters for every mode this package computes: on first use
-# in KerrSeqCache and in build_package_default_cache.  They match the
-# precomputed data of the original qnm package (spin sequences up to
-# a = 0.9995).
+# Spin range of every mode this package computes, on first use in
+# KerrSeqCache and in build_package_default_cache; it matches the precomputed
+# data of the original qnm package.  The root-finding tolerances stay at the
+# KerrSpinSeq defaults: a sequence refines every later evaluation with them,
+# and the stricter values of build_package_default_cache make __call__ and
+# compute_at 1.2-1.9x slower for a change in omega of ~2e-13.
 DEFAULT_COMPUTE_PARS = {
     "a_max": 0.9995,
-    "tol": 1e-10,
-    "cf_tol": np.sqrt(np.finfo(float).eps),
     "delta_a": 2.5e-3,
-    "Nr_max": 6000,
 }
 
 
@@ -440,12 +439,12 @@ def build_package_default_cache(ksc):
 
     QNMDict(init=True)
 
-    ksc.compute_pars.update(DEFAULT_COMPUTE_PARS)
+    tol = 1e-10
+    cf_tol = np.sqrt(np.finfo(float).eps)
+    Nr_max = 6000
 
-    # Base values that the rerun passes below scale
-    tol = DEFAULT_COMPUTE_PARS["tol"]
-    cf_tol = DEFAULT_COMPUTE_PARS["cf_tol"]
-    Nr_max = DEFAULT_COMPUTE_PARS["Nr_max"]
+    ksc.compute_pars.update(DEFAULT_COMPUTE_PARS)
+    ksc.compute_pars.update({"tol": tol, "cf_tol": cf_tol, "Nr_max": Nr_max})
 
     def compute(s, l, m, n):
         try:
