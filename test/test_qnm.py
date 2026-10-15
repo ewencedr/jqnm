@@ -239,7 +239,11 @@ class TestJqnmAutomaticCaching:
 @pytest.mark.slow
 class TestJqnmBuildCache(JqnmTestDownload):
     def test_build_cache(self):
-        """Check the default cache-building functionality"""
+        """Check the default cache-building functionality.
+
+        Computes all 860 default modes from scratch (~10 CPU-hours), so it
+        does not run in CI; run it locally or on a cluster.
+        """
 
         jqnm.cached._clear_disk_cache(delete_tarball=False)
         jqnm.modes_cache.seq_dict = {}
