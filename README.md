@@ -37,11 +37,7 @@ pip install .
 For GPU acceleration, install JAX with CUDA support:
 
 ```shell
-# For CUDA 12
-pip install jqnm[cuda12]
-
-# For CUDA 11  
-pip install jqnm[cuda11]
+pip install "jqnm[cuda12]"
 ```
 
 ## Dependencies

@@ -7,7 +7,6 @@ tqdm
 
 # For GPU support, install with:
 # pip install jax[cuda12]  # CUDA 12
-# pip install jax[cuda11]  # CUDA 11
 
 # For development/testing:
 # pytest
