@@ -48,7 +48,6 @@ dependencies = [
 
 [project.optional-dependencies]
 cuda12 = ["jax[cuda12]"]
-cuda11 = ["jax[cuda11]"]
 test = ["pytest", "qnm"]
 dev = ["pytest", "qnm", "black", "ruff"]
 
